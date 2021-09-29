@@ -39,7 +39,6 @@ ErrorCodes validateStack(stack_t *stack) {
     if (!stack->data)                                         return ErrorCodes::DATA_NULLPTR;
     if (!stack->leftCanary)                                   return ErrorCodes::LCANARY_NULLPTR;
     if (!stack->rightCanary)                                  return ErrorCodes::RCANARY_NULLPTR;
-    if (!stack->hash)                                         return ErrorCodes::HASH_VALUE_IS_ZERO;
     if (stack->capacity     <  0)                             return ErrorCodes::NEGATIVE_CAPACITY;
     if (stack->size         <  0)                             return ErrorCodes::NEGATIVE_SIZE;
     if (stack->size         >  stack->capacity)               return ErrorCodes::SIZE_BIGGER_THAN_CAPACITY;
