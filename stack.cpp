@@ -4,30 +4,6 @@
 #include <cstdio>
 #include "stack.hpp"
 
-//вынести main, long long canary, %printf спецификатор при смене типа, указывать тип стека при создании
-
-int main() {
-    stack_t stack1;
-    stackCtor(stack1);
-
-    for (stackElementType i = 0; i < 10; ++i) {
-        stackPush(&stack1, i);
-        printf("%lld %lld\n", i, stack1.hash);
-    }
-
-    stackElementType value;
-    for (stackElementType i = 0; i < 10; ++i) {
-        stackPop(&stack1, &value);
-        printf("%lld\n", value);
-    }
-
-    // сломать можно так:
-    //stack1.size = 2;
-
-    stackDtor(&stack1);
-    return 0;
-}
-
 void stackDtor(stack_t *stack) {
     ASSERT_STACK_IS_VERIFIED(stack);
 
@@ -174,6 +150,7 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
 long long calcHash(const char *dataPointer, size_t nBytes) {
     long long hash = *dataPointer;
     for (size_t i = 0; i < nBytes; ++i) {
+        // тут ub почему-то
         hash ^= dataPointer[i] << (i % 64);
     }
 
