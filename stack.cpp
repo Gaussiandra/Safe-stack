@@ -4,27 +4,32 @@
 #include <cstdio>
 #include "stack.hpp"
 
-//dump, main
+//вынести main, long long canary, %printf спецификатор при смене типа, указывать тип стека при создании
 
 int main() {
-    stack_t stack;
+    stack_t stack1;
+    stackCtor(stack1);
 
-    for (stackElementType i = 0; i < 100; ++i) {
-        stackPush(&stack, i);
+    for (stackElementType i = 0; i < 10; ++i) {
+        stackPush(&stack1, i);
+        printf("%lld %lld\n", i, stack1.hash);
     }
 
     stackElementType value;
-    for (stackElementType i = 0; i < 100; ++i) {
-        stackPop(&stack, &value);
+    for (stackElementType i = 0; i < 10; ++i) {
+        stackPop(&stack1, &value);
         printf("%lld\n", value);
     }
 
-    stackDtor(&stack);
+    // сломать можно так:
+    //stack1.size = 2;
+
+    stackDtor(&stack1);
     return 0;
 }
 
 void stackDtor(stack_t *stack) {
-    ASSERT_STACK_IS_VERIFIED(stack, #stack);
+    ASSERT_STACK_IS_VERIFIED(stack);
 
     if (stack->leftCanary != nullptr) {
         if (DEBUG_LEVEL == DebugLevels::EXHAUSTIVE) {
@@ -37,7 +42,7 @@ void stackDtor(stack_t *stack) {
 
         free(stack->leftCanary);
 
-        stack->capacity = stack->size = 0;
+        stack->capacity = stack->size = stack->hash = 0;
         stack->leftCanary = stack->data = stack->rightCanary = nullptr;
     }
 }
@@ -49,13 +54,16 @@ ErrorCodes validateStack(stack_t *stack) {
 
     if (stack->data     == nullptr &&
         stack->size     == 0       &&
-        stack->capacity == 0) {
+        stack->capacity == 0       &&
+        stack->hash     == 0) {
         return ErrorCodes::OKAY;
     }
 
+    if (!strlen(stack->name))                                 return ErrorCodes::CONSTRUCTOR_WASNT_CALLED;
     if (!stack->data)                                         return ErrorCodes::DATA_NULLPTR;
     if (!stack->leftCanary)                                   return ErrorCodes::LCANARY_NULLPTR;
     if (!stack->rightCanary)                                  return ErrorCodes::RCANARY_NULLPTR;
+    if (!stack->hash)                                         return ErrorCodes::HASH_VALUE_IS_ZERO;
     if (stack->capacity     <  0)                             return ErrorCodes::NEGATIVE_CAPACITY;
     if (stack->size         <  0)                             return ErrorCodes::NEGATIVE_SIZE;
     if (stack->size         >  stack->capacity)               return ErrorCodes::SIZE_BIGGER_THAN_CAPACITY;
@@ -67,19 +75,21 @@ ErrorCodes validateStack(stack_t *stack) {
     if (DEBUG_LEVEL == DebugLevels::EXHAUSTIVE) {
         for (size_t i = stack->size; i < stack->capacity; ++i) {
             if (stack->data[i] != POPPED) {
-                return ErrorCodes::FREE_SPACE_POISONED;
+                return ErrorCodes::FREE_SPACE_ISNT_POISONED;
             }
         }
+
+        if (calcStackHash(stack) != stack->hash) {
+            return ErrorCodes::WRONG_HASH;
+        }
     }
+
 
     return ErrorCodes::OKAY;
 }
 
 ErrorCodes setDataPointers(stack_t *stack, stackElementType *leftCanary, size_t capacity) {
     //если стеком попользоваться, а потом изменить размер на 0, то он будет = 2 из-за канареек, норм?
-
-    //printf("size %zu, capacity %zu -> %zu\n", stack->size, stack->capacity, capacity);
-
     stack->leftCanary = leftCanary;
     stack->data = leftCanary + 1;
     stack->rightCanary = stack->data + capacity;
@@ -93,6 +103,8 @@ ErrorCodes setDataPointers(stack_t *stack, stackElementType *leftCanary, size_t 
         for (size_t i = stack->size; i < stack->capacity; ++i) {
             stack->data[i] = POPPED;
         }
+
+        stack->hash = calcStackHash(stack);
     }
 
     ASSERT_STACK_IS_VERIFIED(stack);
@@ -100,7 +112,7 @@ ErrorCodes setDataPointers(stack_t *stack, stackElementType *leftCanary, size_t 
 }
 
 ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity) {
-    ErrorCodes inputStackStatus  = validateStack(stack);
+    ErrorCodes inputStackStatus = validateStack(stack);
     stackElementType *newPtr = nullptr;
 
     if (inputStackStatus == ErrorCodes::OKAY ||
@@ -108,7 +120,7 @@ ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity) {
         newPtr = (stackElementType *) realloc(stack->leftCanary,(capacity + 2) * sizeof(stackElementType));
     }
     else {
-        ASSERT_STACK_IS_VERIFIED(stack);    ///dump
+        ASSERT_STACK_IS_VERIFIED(stack);
     }
 
     if (newPtr != nullptr) {
@@ -127,6 +139,10 @@ ErrorCodes stackPush(stack_t *stack, stackElementType value) {
     }
     stack->data[stack->size++] = value;
 
+    if (DEBUG_LEVEL == DebugLevels::EXHAUSTIVE) {
+        stack->hash = calcStackHash(stack);
+    }
+
     ASSERT_STACK_IS_VERIFIED(stack);
     return ErrorCodes::OKAY;
 }
@@ -141,6 +157,10 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
     *poppedValue = stack->data[--stack->size];
     if (DEBUG_LEVEL >= DebugLevels::FAST) {
         stack->data[stack->size] = Poison::POPPED;
+
+        if (DEBUG_LEVEL == DebugLevels::EXHAUSTIVE) {
+            stack->hash = calcStackHash(stack);
+        }
     }
 
     if (stack->size <= (size_t) ((double) stack->capacity * CHECK_SHRINK_COEF)) {
@@ -150,3 +170,65 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
     ASSERT_STACK_IS_VERIFIED(stack);
     return ErrorCodes::OKAY;
 }
+
+long long calcHash(const char *dataPointer, size_t nBytes) {
+    long long hash = *dataPointer;
+    for (size_t i = 0; i < nBytes; ++i) {
+        hash ^= dataPointer[i] << (i % 64);
+    }
+
+    return hash;
+}
+
+long long calcStackHash(stack_t *stack) {
+    // корректно если размер канарейки совпадает с типом стека
+    return calcHash((char *)stack->leftCanary,
+                    sizeof(stackElementType) * (stack->capacity + 2));
+}
+
+void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
+    fprintf(out, "Stack \"%s\" from %p\n", stack->name, stack);
+    fprintf(out, "Status = %s\n", getErrorCodeName(validationStatus));
+    fprintf(out, "Capacity = %zu, size = %zu\n", stack->capacity, stack->size);
+    // как вывести тип stackElementType?
+
+    if (*stack->leftCanary == Poison::CANARY) {
+        fprintf(out, "[-1] CANARY\n");
+    }
+    else {
+        fprintf(out, "[-1] %lld\n", *stack->leftCanary);
+    }
+
+    for (size_t i = 0; i < stack->capacity; ++i) {
+        if (stack->data[i] == POPPED) {
+            fprintf(out, "[%zu] POPPED\n", i);
+        }
+        else {
+            fprintf(out, "[%zu] %lld\n", i, stack->data[i]);
+        }
+    }
+
+    if (*stack->rightCanary == Poison::CANARY) {
+        fprintf(out, "[%zu] CANARY\n", stack->capacity);
+    }
+    else {
+        fprintf(out, "[%zu] %lld\n", stack->capacity, *stack->rightCanary);
+    }
+}
+
+#define DECLARE_CODE_(code) #code,
+const char* getErrorCodeName(ErrorCodes errorValue) {
+    unsigned long value = (unsigned long) errorValue;
+    const char* value2Name[] = {
+        #include "ErrorCodes.h"
+    };
+    size_t arrSize = sizeof(value2Name) / sizeof(value2Name[0]);
+
+    if (value >= 0 && value < arrSize) {
+        return value2Name[value];
+    }
+    else {
+        return "UNKNOWN";
+    }
+}
+#undef DECLARE_CODE_
