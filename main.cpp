@@ -4,6 +4,7 @@
 //как сделать long long canary без зависимости от типа, причём оставить себе нормальную адресацию через []
 // хочется работающий спецификатор в %printf при смене типа
 // хочется указывать тип стека при создании
+// dump в graphviz, canary, code generation
 
 int main() {
     stack_t stack1;
@@ -14,14 +15,13 @@ int main() {
         printf("%lld %lld\n", i, stack1.hash);
     }
 
+//    stack1.data[9] = 1;
+
     stackElementType value;
     for (stackElementType i = 0; i < 10; ++i) {
         stackPop(&stack1, &value);
         printf("%lld\n", value);
     }
-
-    // сломать можно например так:
-    //stack1.size = 2;
 
     stackDtor(&stack1);
     return 0;

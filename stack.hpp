@@ -1,5 +1,3 @@
-#define OUTPUT_STREAM stderr
-
 #define ASSERT_STACK_IS_VERIFIED(stack) {                                                                              \
     ErrorCodes validationStatus = validateStack(stack);                                                                \
     if (validationStatus != ErrorCodes::OKAY) {                                                                        \
@@ -16,11 +14,10 @@
     #define POISON_FIRST_VALUE_ -987654103
 #endif
 
-// можно ли в enum class сделать?
 enum Poison {
     POPPED = POISON_FIRST_VALUE_,
     DELETED_FROM_MEMORY,
-    CANARY = 0xDEADBEEF, // а если уменьшить тип?
+    CANARY = 0xDEADBEEF,
 };
 #undef POISON_FIRST_VALUE_
 
@@ -36,6 +33,7 @@ enum class DebugLevels {
     EXHAUSTIVE,
 };
 
+#define OUTPUT_STREAM stderr
 const DebugLevels DEBUG_LEVEL = DebugLevels::EXHAUSTIVE;
 const double EXPAND_COEF = 1.5;
 const double CHECK_SHRINK_COEF = 0.5;
@@ -48,7 +46,7 @@ struct stack_t {
     stackElementType *data        = nullptr,
                      *leftCanary  = nullptr,
                      *rightCanary = nullptr;
-    const char *name = "";
+    const char *name = nullptr;
     long long hash = 0;
     #define stackCtor(stackName) stackName.name = #stackName;
 };

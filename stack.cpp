@@ -28,14 +28,14 @@ ErrorCodes validateStack(stack_t *stack) {
         return ErrorCodes::OKAY;
     }
 
-    if (stack->data     == nullptr &&
+    if (stack->data     == nullptr && // тут будет простой баг ||
         stack->size     == 0       &&
         stack->capacity == 0       &&
         stack->hash     == 0) {
         return ErrorCodes::OKAY;
     }
 
-    if (!strlen(stack->name))                                 return ErrorCodes::CONSTRUCTOR_WASNT_CALLED;
+    if (!stack->name)                                         return ErrorCodes::CONSTRUCTOR_WASNT_CALLED;
     if (!stack->data)                                         return ErrorCodes::DATA_NULLPTR;
     if (!stack->leftCanary)                                   return ErrorCodes::LCANARY_NULLPTR;
     if (!stack->rightCanary)                                  return ErrorCodes::RCANARY_NULLPTR;
@@ -64,7 +64,6 @@ ErrorCodes validateStack(stack_t *stack) {
 }
 
 ErrorCodes setDataPointers(stack_t *stack, stackElementType *leftCanary, size_t capacity) {
-    //если стеком попользоваться, а потом изменить размер на 0, то он будет = 2 из-за канареек, норм?
     stack->leftCanary = leftCanary;
     stack->data = leftCanary + 1;
     stack->rightCanary = stack->data + capacity;
@@ -149,7 +148,6 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
 long long calcHash(const char *dataPointer, size_t nBytes) {
     long long hash = *dataPointer;
     for (size_t i = 0; i < nBytes; ++i) {
-        // тут ub почему-то
         hash ^= dataPointer[i] << (i % 64);
     }
 
@@ -157,16 +155,14 @@ long long calcHash(const char *dataPointer, size_t nBytes) {
 }
 
 long long calcStackHash(stack_t *stack) {
-    // корректно если размер канарейки совпадает с типом стека
     return calcHash((char *)stack->leftCanary,
-                    sizeof(stackElementType) * (stack->capacity + 2));
+                    sizeof(stackElementType) * (stack->capacity + 2)); //сложный баг +2
 }
 
 void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
     fprintf(out, "Stack \"%s\" from %p\n", stack->name, stack);
     fprintf(out, "Status = %s\n", getErrorCodeName(validationStatus));
     fprintf(out, "Capacity = %zu, size = %zu\n", stack->capacity, stack->size);
-    // как вывести тип stackElementType?
 
     if (*stack->leftCanary == Poison::CANARY) {
         fprintf(out, "[-1] CANARY\n");
