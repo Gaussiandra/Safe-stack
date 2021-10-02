@@ -2,12 +2,17 @@
 #include <cstring>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <cstdint>
 #include "stack.hpp"
 
 void initStructFields(stack_t *stack) {
     assert(stack);
 
-    stack->capacity = stack->size = stack->dataHash = stack->structHash = 0;
+    #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
+        stack->dataHash = stack->structHash = 0;
+    #endif
+    stack->capacity = stack->size = 0;
     stack->data = nullptr;
     stack->leftCanary = stack->rightCanary = nullptr;
 }
@@ -22,13 +27,13 @@ void stackDtor(stack_t *stack) {
     ASSERT_STACK_IS_VERIFIED(stack);
 
     if (stack->leftCanary != nullptr) {
-        if (DEBUG_LEVEL == DebugLevels::EXPENSIVE) {
+        #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
             *stack->leftCanary  = (stackCanaryType) DELETED_FROM_MEMORY;
             *stack->rightCanary = (stackCanaryType) DELETED_FROM_MEMORY;
             for (size_t i = 0; i < stack->capacity; ++i) {
                 stack->data[i] = DELETED_FROM_MEMORY;
             }
-        }
+        #endif
 
         free(stack->leftCanary);
         initStructFields(stack);
@@ -36,39 +41,46 @@ void stackDtor(stack_t *stack) {
 }
 
 ErrorCodes validateStack(stack_t *stack) {
-    if (DEBUG_LEVEL == DebugLevels::DISABLE) {
+    #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_DISABLE
         return ErrorCodes::OKAY;
-    }
+    #endif
 
     if (!stack) {
         return ErrorCodes::WRONG_STACK_PTR;
     }
 
-    if (stack->data       == nullptr && // тут будет простой баг ||
+    if (stack->data       == nullptr &&
         stack->size       == 0       &&
-        stack->capacity   == 0       &&
-        stack->dataHash   == 0       &&
-        stack->structHash == 0) {
-        return ErrorCodes::OKAY;
+        stack->capacity   == 0) {
+        #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
+            if (stack->dataHash   == 0 &&
+                stack->structHash == 0) {
+                return ErrorCodes::OKAY;
+            }
+        #else
+            return ErrorCodes::OKAY;
+        #endif
     }
 
-    if (!stack->name)                                return ErrorCodes::CONSTRUCTOR_WASNT_CALLED;
-    if (!stack->data)                                return ErrorCodes::DATA_NULLPTR;
-    if (!stack->leftCanary)                          return ErrorCodes::LCANARY_DATA_NULLPTR;
-    if (!stack->rightCanary)                         return ErrorCodes::RCANARY_DATA_NULLPTR;
-    if (stack->leftStructCanary  != Poison::CANARY)  return ErrorCodes::LCANARY_STRUCT_WRONG_VALUE;
-    if (stack->rightStructCanary != Poison::CANARY)  return ErrorCodes::RCANARY_STRUCT_WRONG_VALUE;
-    if (stack->capacity          <  0)               return ErrorCodes::NEGATIVE_CAPACITY;
-    if (stack->size              <  0)               return ErrorCodes::NEGATIVE_SIZE;
-    if (stack->size              >  stack->capacity) return ErrorCodes::SIZE_BIGGER_THAN_CAPACITY;
-    if (*stack->leftCanary       != Poison::CANARY)  return ErrorCodes::LCANARY_DATA_WRONG_VALUE;
-    if (*stack->rightCanary      != Poison::CANARY)  return ErrorCodes::RCANARY_DATA_WRONG_VALUE;
+    if (!stack->name)                                    return ErrorCodes::CONSTRUCTOR_WASNT_CALLED;
+    if (!stack->data)                                    return ErrorCodes::DATA_NULLPTR;
+    if (!stack->leftCanary)                              return ErrorCodes::LCANARY_DATA_NULLPTR;
+    if (!stack->rightCanary)                             return ErrorCodes::RCANARY_DATA_NULLPTR;
+    #if CURRENT_DEBUG_LEVEL != DEBUG_LEVEL_DISABLE
+        if (stack->leftStructCanary  != Poison::CANARY)  return ErrorCodes::LCANARY_STRUCT_WRONG_VALUE;
+        if (stack->rightStructCanary != Poison::CANARY)  return ErrorCodes::RCANARY_STRUCT_WRONG_VALUE;
+    #endif
+    if (stack->capacity          <  0)                   return ErrorCodes::NEGATIVE_CAPACITY;
+    if (stack->size              <  0)                   return ErrorCodes::NEGATIVE_SIZE;
+    if (stack->size              >  stack->capacity)     return ErrorCodes::SIZE_BIGGER_THAN_CAPACITY;
+    if (*stack->leftCanary       != Poison::CANARY)      return ErrorCodes::LCANARY_DATA_WRONG_VALUE;
+    if (*stack->rightCanary      != Poison::CANARY)      return ErrorCodes::RCANARY_DATA_WRONG_VALUE;
     if (stack->leftCanary        != (stackCanaryType *) ((char *) stack->data - sizeof(stackCanaryType)))
         return ErrorCodes::LCANARY_WRONG_PTR;
     if (stack->rightCanary       != (stackCanaryType *) (stack->data + stack->capacity))
         return ErrorCodes::RCANARY_WRONG_PTR;
 
-    if (DEBUG_LEVEL == DebugLevels::EXPENSIVE) {
+    #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
         for (size_t i = stack->size; i < stack->capacity; ++i) {
             if (stack->data[i] != POPPED) {
                 return ErrorCodes::FREE_SPACE_ISNT_POISONED;
@@ -81,7 +93,7 @@ ErrorCodes validateStack(stack_t *stack) {
         if (calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity)) != stack->dataHash) {
             return ErrorCodes::WRONG_DATA_HASH;
         }
-    }
+    #endif
 
 
     return ErrorCodes::OKAY;
@@ -98,14 +110,14 @@ ErrorCodes setDataPointers(stack_t *stack, stackCanaryType *leftCanary, size_t c
     *stack->rightCanary = Poison::CANARY;
     stack->capacity = capacity;
 
-    if (DEBUG_LEVEL == DebugLevels::EXPENSIVE) {
+    #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
         for (size_t i = stack->size; i < stack->capacity; ++i) {
             stack->data[i] = POPPED;
         }
 
         stack->structHash = calcHash((char *) stack,  getStructHashableSize(stack));
         stack->dataHash = calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity));
-    }
+    #endif
 
     ASSERT_STACK_IS_VERIFIED(stack);
     return ErrorCodes::OKAY;
@@ -148,10 +160,10 @@ ErrorCodes stackPush(stack_t *stack, stackElementType value) {
     }
     stack->data[stack->size++] = value;
 
-    if (DEBUG_LEVEL == DebugLevels::EXPENSIVE) {
+    #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
         stack->structHash = calcHash((char *) stack,  getStructHashableSize(stack));
         stack->dataHash = calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity));
-    }
+    #endif
 
     ASSERT_STACK_IS_VERIFIED(stack);
     return ErrorCodes::OKAY;
@@ -165,14 +177,14 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
     }
 
     *poppedValue = stack->data[--stack->size];
-    if (DEBUG_LEVEL >= DebugLevels::FAST) {
+    #if CURRENT_DEBUG_LEVEL >= DEBUG_LEVEL_FAST
         stack->data[stack->size] = Poison::POPPED;
 
-        if (DEBUG_LEVEL == DebugLevels::EXPENSIVE) {
+        #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
             stack->structHash = calcHash((char *) stack, getStructHashableSize(stack));
             stack->dataHash = calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity));
-        }
-    }
+        #endif
+    #endif
 
     stackChangeCapacity(stack, stack->capacity, false);
 
@@ -180,13 +192,20 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
     return ErrorCodes::OKAY;
 }
 
-long long calcHash(const char *dataPointer, size_t nBytes) {
+// Jenkins hash function. Source: https://en.wikipedia.org/wiki/Jenkins_hash_function#one_at_a_time
+uint32_t calcHash(const char *dataPointer, size_t nBytes) {
     assert(dataPointer);
 
-    long long hash = *dataPointer;
-    for (size_t i = 0; i < nBytes; ++i) {
-        hash ^= dataPointer[i] << (i % 64);
+    uint32_t hash, i;
+    for(hash = i = 0; i < nBytes; ++i)
+    {
+        hash += dataPointer[i];
+        hash += (hash << 10);
+        hash ^= (hash >> 6);
     }
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    hash += (hash << 15);
 
     return hash;
 }
@@ -235,7 +254,7 @@ void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
 const char* getErrorCodeName(ErrorCodes errorValue) {
     unsigned long value = (unsigned long) errorValue;
     const char* value2Name[] = {
-        #include "ErrorCodes.h"
+        #include "ErrorCodes.hpp"
     };
     size_t arrSize = sizeof(value2Name) / sizeof(value2Name[0]);
 

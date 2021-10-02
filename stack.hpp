@@ -1,3 +1,11 @@
+#include <cstdint>
+
+#define DEBUG_LEVEL_DISABLE   0
+#define DEBUG_LEVEL_FAST      1
+#define DEBUG_LEVEL_EXPENSIVE 2
+#define CURRENT_DEBUG_LEVEL DEBUG_LEVEL_EXPENSIVE
+#define OUTPUT_STREAM stderr
+
 #define LOCATION __FILE__, __FUNCTION__, __LINE__
 #define ASSERT_STACK_IS_VERIFIED(stack) {                                                                              \
     ErrorCodes validationStatus = validateStack(stack);                                                                \
@@ -10,15 +18,9 @@
 
 #define DECLARE_CODE_(code) code,
 enum class ErrorCodes {
-    #include "ErrorCodes.h"
+    #include "ErrorCodes.hpp"
 };
 #undef DECLARE_CODE_
-
-enum class DebugLevels {
-    DISABLE,
-    FAST,
-    EXPENSIVE,
-};
 
 // Should be set with respect to stackElementType and stackCanaryType
 enum Poison {
@@ -27,26 +29,33 @@ enum Poison {
     CANARY = 0xDEADBEEF,
 };
 
-#define OUTPUT_STREAM stderr
-const DebugLevels DEBUG_LEVEL = DebugLevels::EXPENSIVE;
 const double EXPAND_COEF = 1.5;
 const double SHRINK_COEF = 0.65;
 const double CHECK_HYSTERESIS_COEF = 0.5;
 
 typedef int stackElementType;
 typedef long long stackCanaryType;
-typedef long long hashType;
+typedef uint32_t hashType;
 struct stack_t {
-    const stackCanaryType leftStructCanary = Poison::CANARY;
+    #if CURRENT_DEBUG_LEVEL >= DEBUG_LEVEL_FAST
+        const stackCanaryType leftStructCanary = Poison::CANARY;
+    #endif
+
     size_t size     = 0,
            capacity = 0;
     stackElementType *data        = nullptr;
     stackCanaryType  *leftCanary  = nullptr,
                      *rightCanary = nullptr;
     const char *name = nullptr;
-    const stackCanaryType rightStructCanary = Poison::CANARY;
-    hashType structHash = 0,
-             dataHash   = 0;
+
+    #if CURRENT_DEBUG_LEVEL != DEBUG_LEVEL_DISABLE
+        const stackCanaryType rightStructCanary = Poison::CANARY;
+
+        #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
+            hashType structHash = 0,
+                     dataHash   = 0;
+        #endif
+    #endif
 
     #define stackCtor(stackName) {                                                                                     \
         stackCtor_(&stackName);                                                                                        \
@@ -61,7 +70,7 @@ ErrorCodes setDataPointers(stack_t *stack, stackCanaryType *leftCanary, size_t c
 ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity, bool isExpandingMode);
 ErrorCodes stackPush(stack_t *stack, stackElementType value);
 ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue);
-long long calcHash(const char *dataPointer, size_t nBytes);
+uint32_t calcHash(const char *dataPointer, size_t nBytes);
 size_t getStructHashableSize(stack_t *stack);
 size_t getStackArraySize(size_t capacity);
 void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out = OUTPUT_STREAM);
