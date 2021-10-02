@@ -12,7 +12,7 @@ int main() {
 
     for (stackElementType i = 0; i < 10; ++i) {
         stackPush(&stack1, i);
-        printf("%lld %lld\n", i, stack1.hash);
+        printf("%lld %lld\n", i, stack1.dataHash);
     }
 
 //    stack1.data[9] = 1;

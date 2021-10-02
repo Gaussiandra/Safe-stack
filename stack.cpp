@@ -2,14 +2,21 @@
 #include <cstring>
 #include <cmath>
 #include <cstdio>
-#include <typeinfo>
 #include "stack.hpp"
 
-//void stackCtor_(stack_t *stack) {
-//    stack->capacity = stack->size = stack->hash = 0;
-//    stack->data = nullptr;
-//    stack->leftCanary = stack->rightCanary = nullptr;
-//}
+void initStructFields(stack_t *stack) {
+    assert(stack);
+
+    stack->capacity = stack->size = stack->dataHash = stack->structHash = 0;
+    stack->data = nullptr;
+    stack->leftCanary = stack->rightCanary = nullptr;
+}
+
+void stackCtor_(stack_t *stack) {
+    assert(stack);
+    initStructFields(stack);
+    ASSERT_STACK_IS_VERIFIED(stack);
+}
 
 void stackDtor(stack_t *stack) {
     ASSERT_STACK_IS_VERIFIED(stack);
@@ -24,10 +31,7 @@ void stackDtor(stack_t *stack) {
         }
 
         free(stack->leftCanary);
-
-        stack->capacity = stack->size = stack->hash = 0;
-        stack->data = nullptr;
-        stack->leftCanary = stack->rightCanary = nullptr;
+        initStructFields(stack);
     }
 }
 
@@ -40,10 +44,11 @@ ErrorCodes validateStack(stack_t *stack) {
         return ErrorCodes::WRONG_STACK_PTR;
     }
 
-    if (stack->data     == nullptr && // тут будет простой баг ||
-        stack->size     == 0       &&
-        stack->capacity == 0       &&
-        stack->hash     == 0) {
+    if (stack->data       == nullptr && // тут будет простой баг ||
+        stack->size       == 0       &&
+        stack->capacity   == 0       &&
+        stack->dataHash   == 0       &&
+        stack->structHash == 0) {
         return ErrorCodes::OKAY;
     }
 
@@ -70,8 +75,11 @@ ErrorCodes validateStack(stack_t *stack) {
             }
         }
 
-        if (calcHash((char *) stack->leftCanary, getStackDataSize(stack->capacity)) != stack->hash) {
-            return ErrorCodes::WRONG_HASH;
+        if (calcHash((char *) stack, getStructHashableSize(stack)) != stack->structHash) {
+            return ErrorCodes::WRONG_STRUCT_HASH;
+        }
+        if (calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity)) != stack->dataHash) {
+            return ErrorCodes::WRONG_DATA_HASH;
         }
     }
 
@@ -80,6 +88,8 @@ ErrorCodes validateStack(stack_t *stack) {
 }
 
 ErrorCodes setDataPointers(stack_t *stack, stackCanaryType *leftCanary, size_t capacity) {
+    assert(stack);
+
     stack->leftCanary = leftCanary;
     stack->data = (stackElementType *) (leftCanary + 1);
     stack->rightCanary = (stackCanaryType *) (stack->data + capacity);
@@ -93,7 +103,8 @@ ErrorCodes setDataPointers(stack_t *stack, stackCanaryType *leftCanary, size_t c
             stack->data[i] = POPPED;
         }
 
-        stack->hash = calcHash((char *) stack->leftCanary, getStackDataSize(stack->capacity));
+        stack->structHash = calcHash((char *) stack,  getStructHashableSize(stack));
+        stack->dataHash = calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity));
     }
 
     ASSERT_STACK_IS_VERIFIED(stack);
@@ -101,6 +112,8 @@ ErrorCodes setDataPointers(stack_t *stack, stackCanaryType *leftCanary, size_t c
 }
 
 ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity, bool isExpandingMode) {
+    assert(stack);
+
     ErrorCodes inputStackStatus = validateStack(stack);
     stackCanaryType *newPtr = nullptr;
     size_t newCapacity = stack->capacity;
@@ -113,7 +126,7 @@ ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity, bool isExpanding
 
     if (inputStackStatus == ErrorCodes::OKAY ||
         stack->data == nullptr) {
-        newPtr = (stackCanaryType *) realloc(stack->leftCanary, getStackDataSize(newCapacity));
+        newPtr = (stackCanaryType *) realloc(stack->leftCanary, getStackArraySize(newCapacity));
     }
     else {
         ASSERT_STACK_IS_VERIFIED(stack);
@@ -136,7 +149,8 @@ ErrorCodes stackPush(stack_t *stack, stackElementType value) {
     stack->data[stack->size++] = value;
 
     if (DEBUG_LEVEL == DebugLevels::EXPENSIVE) {
-        stack->hash = calcHash((char *) stack->leftCanary, getStackDataSize(stack->capacity));
+        stack->structHash = calcHash((char *) stack,  getStructHashableSize(stack));
+        stack->dataHash = calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity));
     }
 
     ASSERT_STACK_IS_VERIFIED(stack);
@@ -155,7 +169,8 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
         stack->data[stack->size] = Poison::POPPED;
 
         if (DEBUG_LEVEL == DebugLevels::EXPENSIVE) {
-            stack->hash = calcHash((char *) stack->leftCanary, getStackDataSize(stack->capacity));
+            stack->structHash = calcHash((char *) stack, getStructHashableSize(stack));
+            stack->dataHash = calcHash((char *) stack->leftCanary, getStackArraySize(stack->capacity));
         }
     }
 
@@ -166,6 +181,8 @@ ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue) {
 }
 
 long long calcHash(const char *dataPointer, size_t nBytes) {
+    assert(dataPointer);
+
     long long hash = *dataPointer;
     for (size_t i = 0; i < nBytes; ++i) {
         hash ^= dataPointer[i] << (i % 64);
@@ -174,11 +191,18 @@ long long calcHash(const char *dataPointer, size_t nBytes) {
     return hash;
 }
 
-size_t getStackDataSize(size_t capacity) {
+size_t getStructHashableSize(stack_t *stack) {
+    assert(stack);
+    return sizeof(*stack) - 2*sizeof(hashType);
+}
+
+size_t getStackArraySize(size_t capacity) {
     return capacity * sizeof(stackElementType) + 2*sizeof(stackCanaryType);
 }
 
 void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
+    assert(stack);
+
     fprintf(out, "Stack \"%s\" from %p\n", stack->name, stack);
     fprintf(out, "Status = %s\n", getErrorCodeName(validationStatus));
     fprintf(out, "Capacity = %zu, size = %zu\n", stack->capacity, stack->size);

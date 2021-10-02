@@ -20,13 +20,13 @@ enum class DebugLevels {
     EXPENSIVE,
 };
 
+// Should be set with respect to stackElementType and stackCanaryType
 enum Poison {
     POPPED = 0xF2EE,
     DELETED_FROM_MEMORY,
     CANARY = 0xDEADBEEF,
 };
 
-// стоит помнять
 #define OUTPUT_STREAM stderr
 const DebugLevels DEBUG_LEVEL = DebugLevels::EXPENSIVE;
 const double EXPAND_COEF = 1.5;
@@ -35,6 +35,7 @@ const double CHECK_HYSTERESIS_COEF = 0.5;
 
 typedef int stackElementType;
 typedef long long stackCanaryType;
+typedef long long hashType;
 struct stack_t {
     const stackCanaryType leftStructCanary = Poison::CANARY;
     size_t size     = 0,
@@ -43,11 +44,17 @@ struct stack_t {
     stackCanaryType  *leftCanary  = nullptr,
                      *rightCanary = nullptr;
     const char *name = nullptr;
-    long long hash = 0;
     const stackCanaryType rightStructCanary = Poison::CANARY;
-#define stackCtor(stackName) stackName.name = #stackName;
+    hashType structHash = 0,
+             dataHash   = 0;
+
+    #define stackCtor(stackName) {                                                                                     \
+        stackCtor_(&stackName);                                                                                        \
+        stackName.name = #stackName;                                                                                   \
+    }
 };
 
+void stackCtor_(stack_t *stack);
 void stackDtor(stack_t *stack);
 ErrorCodes validateStack(stack_t *stack);
 ErrorCodes setDataPointers(stack_t *stack, stackCanaryType *leftCanary, size_t capacity);
@@ -55,6 +62,7 @@ ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity, bool isExpanding
 ErrorCodes stackPush(stack_t *stack, stackElementType value);
 ErrorCodes stackPop(stack_t *stack, stackElementType *poppedValue);
 long long calcHash(const char *dataPointer, size_t nBytes);
-size_t getStackDataSize(size_t capacity);
+size_t getStructHashableSize(stack_t *stack);
+size_t getStackArraySize(size_t capacity);
 void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out = OUTPUT_STREAM);
 const char* getErrorCodeName(ErrorCodes errorValue);
