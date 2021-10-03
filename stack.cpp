@@ -45,10 +45,6 @@ ErrorCodes validateStack(stack_t *stack) {
         return ErrorCodes::OKAY;
     #endif
 
-    if (!stack) {
-        return ErrorCodes::WRONG_STACK_PTR;
-    }
-
     if (stack->data       == nullptr &&
         stack->size       == 0       &&
         stack->capacity   == 0) {
