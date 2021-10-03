@@ -45,6 +45,10 @@ ErrorCodes validateStack(stack_t *stack) {
         return ErrorCodes::OKAY;
     #endif
 
+    if (!stack) {
+        return ErrorCodes::WRONG_STACK_PTR;
+    }
+
     if (stack->data       == nullptr &&
         stack->size       == 0       &&
         stack->capacity   == 0) {
@@ -148,8 +152,6 @@ ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity, bool isExpanding
 }
 
 ErrorCodes stackPush(stack_t *stack, stackElementType value) {
-    ASSERT_STACK_IS_VERIFIED(stack);
-
     if (stack->size == stack->capacity) {
         stackChangeCapacity(stack, stack->capacity, true);
     }

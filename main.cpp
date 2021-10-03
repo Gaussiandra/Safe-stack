@@ -10,6 +10,8 @@ int main() {
         //printf("%lld %lld\n", i, stack1.dataHash);
     }
 
+//    stack1.data[9] = 1;
+
     stackElementType value;
     for (stackElementType i = 0; i < 10; ++i) {
         stackPop(&stack1, &value);
