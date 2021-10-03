@@ -95,7 +95,6 @@ ErrorCodes validateStack(stack_t *stack) {
         }
     #endif
 
-
     return ErrorCodes::OKAY;
 }
 
