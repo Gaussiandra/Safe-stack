@@ -111,7 +111,7 @@ ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity, bool isExpanding
         newCapacity = (size_t) ceil((double) capacity * EXPAND_COEF) + 1;
     }
     else if (stack->size <= (size_t) ((double) stack->capacity * CHECK_HYSTERESIS_COEF)) {
-        newCapacity = (size_t) fmax((double) stack->capacity * SHRINK_COEF, 0);
+        newCapacity = (size_t) fmax((double) stack->capacity * SHRINK_COEF, 1);
     }
 
     if (inputStackStatus == ErrorCodes::OKAY ||

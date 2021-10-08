@@ -3,7 +3,6 @@
 #include <cstring>
 #include <cstdint>
 
-
 typedef uint32_t hashType;
 
 // Jenkins hash function. Source: https://en.wikipedia.org/wiki/Jenkins_hash_function#one_at_a_time
