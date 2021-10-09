@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdio>
 #include "utils.hpp"
 
 #define DEBUG_LEVEL_DISABLE   0
