@@ -227,7 +227,7 @@ void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
 
     #if CURRENT_DEBUG_LEVEL != DEBUG_LEVEL_DISABLE
         if (*stack->leftCanary == Poison::CANARY) {
-            fprintf(out, "[-1] CANARY\n");
+            fprintf(out, "[-1] CORRECT CANARY\n");
         }
         else {
             fprintf(out, "[-1] %lld\n", *stack->leftCanary);
@@ -245,7 +245,7 @@ void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
 
     #if CURRENT_DEBUG_LEVEL != DEBUG_LEVEL_DISABLE
         if (*stack->rightCanary == Poison::CANARY) {
-            fprintf(out, "[%zu] CANARY\n", stack->capacity);
+            fprintf(out, "[%zu] CORRECT CANARY\n", stack->capacity);
         }
         else {
             fprintf(out, "[%zu] %lld\n", stack->capacity, *stack->rightCanary);

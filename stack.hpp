@@ -12,8 +12,6 @@
 #define ON_DEBUG(code)
 #endif
 
-#define OUTPUT_STREAM stderr
-
 #define LOCATION __FILE__, __FUNCTION__, __LINE__
 #define ASSERT_STACK_IS_VERIFIED(stack) {                                                                              \
     ErrorCodes validationStatus = validateStack(stack);                                                                \
@@ -67,6 +65,7 @@ struct stack_t {
 const double EXPAND_COEF = 1.5;
 const double SHRINK_COEF = 0.65;
 const double CHECK_HYSTERESIS_COEF = 0.5;
+static FILE *OUTPUT_STREAM = stderr;
 ON_DEBUG(const size_t STRUCT_HASHABLE_SIZE = sizeof(stack_t) - 2*sizeof(hashType));
 
 void stackCtor_(stack_t *stack);
