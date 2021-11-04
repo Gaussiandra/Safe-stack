@@ -117,9 +117,9 @@ ErrorCodes stackChangeCapacity(stack_t *stack, size_t capacity, bool isExpanding
     if (inputStackStatus == ErrorCodes::OKAY ||
         stack->data == nullptr) {
     #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_DISABLE
-        newPtr = (stackCanaryType *) recalloc(stack->data, getStackArraySize(newCapacity), 1);
+        newPtr = (stackCanaryType *) realloc(stack->data, getStackArraySize(newCapacity)*1);
     #else
-        newPtr = (stackCanaryType *) recalloc(stack->leftCanary, getStackArraySize(newCapacity), 1);
+        newPtr = (stackCanaryType *) realloc(stack->leftCanary, getStackArraySize(newCapacity)*1);
     #endif
     }
     else {
@@ -217,8 +217,8 @@ void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
     ON_DEBUG(fprintf(out, "Left struct canary  = %lld on %p\n", stack->leftStructCanary, &stack->leftStructCanary));
     ON_DEBUG(fprintf(out, "Right struct canary = %lld on %p\n", stack->rightStructCanary, &stack->rightStructCanary));
     #if CURRENT_DEBUG_LEVEL == DEBUG_LEVEL_EXPENSIVE
-        fprintf(out, "Data hash   = %lld\n", stack->dataHash);
-        fprintf(out, "Struct hash = %lld\n", stack->structHash);
+        fprintf(out, "Data hash   = %u\n", stack->dataHash);
+        fprintf(out, "Struct hash = %u\n", stack->structHash);
     #endif
 
     fprintf(out, "Data from %p\n", stack->data);
@@ -239,7 +239,7 @@ void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
             fprintf(out, "[%zu] POPPED\n", i);
         }
         else {
-            fprintf(out, "[%zu] %lld\n", i, stack->data[i]);
+            fprintf(out, "[%zu] %u\n", i, stack->data[i]);
         }
     }
 
