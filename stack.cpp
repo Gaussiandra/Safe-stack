@@ -71,8 +71,6 @@ ErrorCodes validateStack(stack_t *stack) {
         if (!stack->data)                                return ErrorCodes::DATA_NULLPTR;
         if (!stack->leftCanary)                          return ErrorCodes::LCANARY_DATA_NULLPTR;
         if (!stack->rightCanary)                         return ErrorCodes::RCANARY_DATA_NULLPTR;
-        if (stack->capacity          <  0)               return ErrorCodes::NEGATIVE_CAPACITY;
-        if (stack->size              <  0)               return ErrorCodes::NEGATIVE_SIZE;
         if (stack->size              >  stack->capacity) return ErrorCodes::SIZE_BIGGER_THAN_CAPACITY;
         if (stack->rightStructCanary != Poison::CANARY)  return ErrorCodes::RCANARY_STRUCT_WRONG_VALUE;
         if (stack->leftStructCanary  != Poison::CANARY)  return ErrorCodes::LCANARY_STRUCT_WRONG_VALUE;
@@ -239,7 +237,7 @@ void stackDump(stack_t *stack, ErrorCodes validationStatus, FILE *out) {
             fprintf(out, "[%zu] POPPED\n", i);
         }
         else {
-            fprintf(out, "[%zu] %u\n", i, stack->data[i]);
+            fprintf(out, "[%zu] %d\n", i, stack->data[i]);
         }
     }
 
@@ -261,7 +259,7 @@ const char* getErrorCodeName(ErrorCodes errorValue) {
     };
     size_t arrSize = sizeof(value2Name) / sizeof(value2Name[0]);
 
-    if (value >= 0 && value < arrSize) {
+    if (value < arrSize) {
         return value2Name[value];
     }
     else {

@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include "utils.hpp"
 
 typedef uint32_t hashType;
 
@@ -9,10 +10,10 @@ typedef uint32_t hashType;
 hashType calcHash(const char *dataPointer, size_t nBytes) {
     assert(dataPointer);
 
-    uint32_t hash, i;
-    for(hash = i = 0; i < nBytes; ++i)
+    hashType hash, i;
+    for(hash = i = 0; i < (hashType) nBytes; ++i)
     {
-        hash += dataPointer[i];
+        hash += (hashType) dataPointer[i];
         hash += (hash << 10);
         hash ^= (hash >> 6);
     }
@@ -27,7 +28,7 @@ void* recalloc(void* ptr, size_t nElements, size_t size) {
     size_t sizeToAllocate = nElements * size;
     void* newPtr = realloc(ptr, sizeToAllocate);
     if (newPtr != ptr && newPtr != nullptr) {
-        memset(newPtr, 0, sizeToAllocate);
+        // memset(newPtr, 0, sizeToAllocate);
     }
 
     return newPtr;

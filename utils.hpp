@@ -1,3 +1,5 @@
+#pragma once
+
 typedef uint32_t hashType;
 
 hashType calcHash(const char *dataPointer, size_t nBytes);
